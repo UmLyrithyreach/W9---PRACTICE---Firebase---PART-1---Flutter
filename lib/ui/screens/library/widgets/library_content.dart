@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/model/songs/songs_detail.dart';
 import 'package:provider/provider.dart';
-import '../../../../model/songs/song.dart';
+
 import '../../../theme/theme.dart';
 import '../../../utils/async_value.dart';
 import '../../../widgets/song/song_tile.dart';
@@ -11,29 +12,32 @@ class LibraryContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1- Read the globbal song repository
     LibraryViewModel mv = context.watch<LibraryViewModel>();
 
-    AsyncValue<List<Song>> asyncValue = mv.songsValue;
+    AsyncValue<List<SongDetail>> asyncValue = mv.songsValue;
 
     Widget content;
     switch (asyncValue.state) {
-      
       case AsyncValueState.loading:
-        content = Center(child: CircularProgressIndicator());
+        content = const Center(child: CircularProgressIndicator());
         break;
       case AsyncValueState.error:
-        content = Center(child: Text('error = ${asyncValue.error!}', style: TextStyle(color: Colors.red),));
-
+        content = Center(
+          child: Text(
+            'error = ${asyncValue.error!}',
+            style: const TextStyle(color: Colors.red),
+          ),
+        );
+        break;
       case AsyncValueState.success:
-        List<Song> songs = asyncValue.data!;
+        List<SongDetail> details = asyncValue.data!;
         content = ListView.builder(
-          itemCount: songs.length,
+          itemCount: details.length,
           itemBuilder: (context, index) => SongTile(
-            song: songs[index],
-            isPlaying: mv.isSongPlaying(songs[index]),
+            songDetail: details[index],
+            isPlaying: mv.isSongPlaying(details[index].song),
             onTap: () {
-              mv.start(songs[index]);
+              mv.start(details[index].song);
             },
           ),
         );
@@ -44,10 +48,9 @@ class LibraryContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(height: 16),
-          Text("Library", style: AppTextStyles.heading),
-          SizedBox(height: 50),
-
+          const SizedBox(height: 16),
+          Text('Library', style: AppTextStyles.heading),
+          const SizedBox(height: 50),
           Expanded(child: content),
         ],
       ),

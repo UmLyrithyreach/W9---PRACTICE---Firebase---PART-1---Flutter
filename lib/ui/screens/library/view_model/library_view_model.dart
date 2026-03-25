@@ -1,19 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_application_1/model/songs/songs_detail.dart';
+
+import '../../../../data/repositories/artists/artist_repository.dart';
 import '../../../../data/repositories/songs/song_repository.dart';
-import '../../../states/player_state.dart';
+import '../../../../model/artists/artist.dart';
 import '../../../../model/songs/song.dart';
+import '../../../states/player_state.dart';
 import '../../../utils/async_value.dart';
 
 class LibraryViewModel extends ChangeNotifier {
   final SongRepository songRepository;
+  final ArtistRepository artistRepository;
   final PlayerState playerState;
 
-  AsyncValue<List<Song>> songsValue = AsyncValue.loading();
+  AsyncValue<List<SongDetail>> songsValue = AsyncValue.loading();
 
-  LibraryViewModel({required this.songRepository, required this.playerState}) {
+  LibraryViewModel({
+    required this.songRepository,
+    required this.artistRepository,
+    required this.playerState,
+  }) {
     playerState.addListener(notifyListeners);
-
-    // init
     _init();
   }
 
@@ -24,26 +31,39 @@ class LibraryViewModel extends ChangeNotifier {
   }
 
   void _init() async {
-    try {
-      await fetchSong();
-    } catch (e) {
-      print('Error initializing library: $e');
-      songsValue = AsyncValue.error(e);
-      notifyListeners();
-    }
+    fetchSongs();
   }
 
-  Future<void> fetchSong() async {
-    // 1- Loading state
+  void fetchSongs() async {
     songsValue = AsyncValue.loading();
     notifyListeners();
 
     try {
-      // 2- Fetch is successfull
-      List<Song> songs = await songRepository.fetchSongs();
-      songsValue = AsyncValue.success(songs);
+      // Fetch both collections in parallel
+      final results = await Future.wait([
+        songRepository.fetchSongs(),
+        artistRepository.fetchArtists(),
+      ]);
+
+      List<Song> songs = results[0] as List<Song>;
+      List<Artist> artists = results[1] as List<Artist>;
+
+      // Build a lookup map for O(1) access
+      Map<String, Artist> artistMap = {
+        for (Artist a in artists) a.id: a,
+      };
+
+      List<SongDetail> details = songs.map((song) {
+        Artist? artist = artistMap[song.artistId];
+        return SongDetail(
+          song: song,
+          artistName: artist?.name ?? 'Unknown',
+          artistGenre: artist?.genre ?? '',
+        );
+      }).toList();
+
+      songsValue = AsyncValue.success(details);
     } catch (e) {
-      // 3- Fetch is unsucessfull
       songsValue = AsyncValue.error(e);
     }
     notifyListeners();
